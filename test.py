@@ -1,2 +1,2 @@
-#hello 
 #hello
+print("hello")
