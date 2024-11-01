@@ -93,3 +93,13 @@ AttributeError: 'LoanApplicationGUI' object has no attribute 'refresh_preview_wi
 2024-11-01 22:14:14 - INFO - Backup created successfully
 2024-11-01 22:14:15 - INFO - Form reset completed
 2024-11-01 22:14:15 - INFO - Preview windows refreshed
+2024-11-01 23:05:53 - INFO - Starting data submission process
+2024-11-01 23:05:53 - INFO - File lock acquired
+2024-11-01 23:05:53 - INFO - Reading existing CSV file
+2024-11-01 23:05:53 - INFO - Preparing new data with ID: 58665
+2024-11-01 23:05:53 - INFO - Successfully saved data with ID: 58665
+2024-11-01 23:05:53 - INFO - Attempting to create backup: loan_backup_20241101_230553.csv
+2024-11-01 23:05:53 - INFO - Backup successfully created: loan_backup_20241101_230553.csv
+2024-11-01 23:05:53 - INFO - Backup created successfully
+2024-11-01 23:05:54 - INFO - Form reset completed
+2024-11-01 23:05:54 - INFO - Preview windows refreshed
