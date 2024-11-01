@@ -4,6 +4,18 @@ import csv
 import pandas as pd
 from pathlib import Path
 import re
+from filelock import FileLock, Timeout
+import logging
+from datetime import datetime
+
+
+log_filename = f'loan_app_{datetime.now().strftime("%Y%m%d")}.log'
+logging.basicConfig(
+    filename=log_filename,
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 class DataPreviewWindow:
     def __init__(self, parent):
@@ -15,8 +27,6 @@ class DataPreviewWindow:
         self.main_frame = ttk.Frame(self.window)
         self.main_frame.pack(fill='both', expand=True)
 
-        # Create refresh button
-        ttk.Button(self.main_frame, text="Refresh", command=self.load_data).pack(pady=5)
 
         # Create treeview frame
         self.tree_frame = ttk.Frame(self.main_frame)
@@ -141,6 +151,9 @@ class LoanApplicationGUI:
         self.root = root
         self.root.title("Loan Application Form")
         self.root.geometry("1200x600")
+
+        self.radio_vars = {}
+        self.other_entries = {}
         
         # Store the initial data count when GUI is opened
         self.initial_data_count = self.get_current_data_length()
@@ -240,26 +253,36 @@ class LoanApplicationGUI:
                 
                 current_row += 1
             elif props['type'] == 'radio_with_other':
-                # New radio button with "Other" option code
                 radio_frame = ttk.Frame(self.scrollable_frame)
                 radio_frame.grid(row=current_row, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
                 
                 self.radio_vars[field] = tk.StringVar()
+                
+                # Create radio buttons for predefined values
                 for i, value in enumerate(props['values']):
-                    ttk.Radiobutton(radio_frame, text=value, 
-                                  variable=self.radio_vars[field], 
-                                  value=value,
-                                  command=lambda f=field: self.radio_clicked(f)).grid(row=0, column=i, padx=5)
+                    ttk.Radiobutton(
+                        radio_frame, 
+                        text=value, 
+                        variable=self.radio_vars[field], 
+                        value=value,
+                        command=lambda f=field: self.radio_clicked(f)  
+                    ).grid(row=0, column=i, padx=5)
+
+                # Create "Other" radio button
+                ttk.Radiobutton(
+                    radio_frame, 
+                    text="Other", 
+                    variable=self.radio_vars[field],
+                    value="OTHER",
+                    command=lambda f=field: self.other_clicked(f) 
+                ).grid(row=0, column=len(props['values']), padx=5)
                 
-                ttk.Radiobutton(radio_frame, text="Other", 
-                               variable=self.radio_vars[field],
-                               value="OTHER",
-                               command=self.other_clicked).grid(row=0, column=len(props['values']), padx=5)
-                
-                self.other_entry = ttk.Entry(radio_frame, state='disabled')
-                self.other_entry.grid(row=0, column=len(props['values'])+1, padx=5)
+                # Create entry for "Other" option
+                self.other_entries[field] = ttk.Entry(radio_frame, state='disabled')
+                self.other_entries[field].grid(row=0, column=len(props['values'])+1, padx=5)
                 
                 current_row += 1
+                            
         
         # Create all buttons in a single frame at the bottom
         button_frame = ttk.Frame(self.scrollable_frame)
@@ -301,7 +324,24 @@ class LoanApplicationGUI:
         self.previous_data_length = self.get_current_data_length()
 
 
-   
+    def other_clicked(self, field):
+        """Handle when 'Other' radio button is clicked"""
+        
+        if field in self.radio_vars and field in self.other_entries:
+            if self.radio_vars[field].get() == "OTHER":
+                self.other_entries[field].config(state='normal')
+            else:
+                self.other_entries[field].config(state='disabled')
+                self.other_entries[field].delete(0, tk.END)
+
+    def radio_clicked(self, field):
+        """Handle when any radio button is clicked"""
+        
+        if field in self.radio_vars and field in self.other_entries:
+            if self.radio_vars[field].get() != "OTHER":
+                self.other_entries[field].config(state='disabled')
+                self.other_entries[field].delete(0, tk.END)
+
     def get_form_data(self):
         """Get form data"""
         data = {}
@@ -323,17 +363,24 @@ class LoanApplicationGUI:
 
     def get_current_data_length(self):
         try:
-            df = pd.read_csv('loan.csv')
-            return len(df)
-        except FileNotFoundError:
-            # 如果文件不存在，创建一个空文件
-            df = pd.DataFrame()
-            df.to_csv('loan.csv', index=False)
+            lock = FileLock("loan.csv.lock", timeout=10)  
+            with lock:
+                try:
+                    df = pd.read_csv('loan.csv')
+                    return len(df)
+                except FileNotFoundError:
+                    df = pd.DataFrame()
+                    df.to_csv('loan.csv', index=False)
+                    return 0
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error accessing data: {str(e)}")
+                    return 0
+        except Timeout:
+            messagebox.showerror("Error", "Could not acquire file lock. Please try again later.")
             return 0
         except Exception as e:
-            messagebox.showerror("Error", f"Error accessing data: {str(e)}")
+            messagebox.showerror("Error", f"Unexpected error: {str(e)}")
             return 0
-
 
     def get_new_data(self):
         try:
@@ -365,8 +412,7 @@ class LoanApplicationGUI:
         tooltips = {
             'person_emp_length': """
             • Must be positive
-            • Cannot exceed (age - 18) years
-            • Cannot exceed credit history length
+            • Cannot exceed (age - 16) years
             """,
             'cb_person_cred_hist_length': """
             • Must be positive
@@ -469,19 +515,22 @@ class LoanApplicationGUI:
     def calculate_loan_percent_income(self, event=None):
         try:
             loan_amount = float(self.widgets['loan_amnt'].get() or 0)
-            income = float(self.widgets['person_income'].get() or 1)
+            income = float(self.widgets['person_income'].get() or 0)
             
-            if income > 0:
-                percent = (loan_amount / income)
-                if percent > 10:  # If loan amount exceeds 10x annual income
-                    messagebox.showwarning("Warning", 
-                        "Loan amount exceeds 10 times annual income. Please consider carefully.")
+            if income <= 0:
+                messagebox.showerror("Error", "Income must be greater than 0")
+                return
                 
-                # Enable the widget temporarily to update its value
-                self.widgets['loan_percent_income'].config(state='normal')
-                self.widgets['loan_percent_income'].delete(0, tk.END)
-                self.widgets['loan_percent_income'].insert(0, f"{percent:.2f}")
-                self.widgets['loan_percent_income'].config(state='readonly')
+            percent = (loan_amount / income)
+            if percent > 10:
+                messagebox.showwarning("Warning", 
+                    "Loan amount exceeds 10 times annual income. Please consider carefully.")
+            
+            self.widgets['loan_percent_income'].config(state='normal')
+            self.widgets['loan_percent_income'].delete(0, tk.END)
+            self.widgets['loan_percent_income'].insert(0, f"{percent:.2f}")
+            self.widgets['loan_percent_income'].config(state='readonly')
+                
         except ValueError:
             self.widgets['loan_percent_income'].config(state='normal')
             self.widgets['loan_percent_income'].delete(0, tk.END)
@@ -494,15 +543,6 @@ class LoanApplicationGUI:
             self.other_entry.config(state='disabled')
             self.other_entry.delete(0, tk.END)
 
-    def other_clicked(self):
-        # If "Other" is selected, uncheck all other checkboxes and enable entry
-        if self.other_var.get():
-            for vars in self.checkbox_vars['loan_intent'].values():
-                vars.set(False)
-            self.other_entry.config(state='normal')
-        else:
-            self.other_entry.config(state='disabled')
-            self.other_entry.delete(0, tk.END)
 
     def validate_entry(self, value, validation_type, field):
         try:
@@ -548,21 +588,14 @@ class LoanApplicationGUI:
                     try:
                         age = int(self.widgets['person_age'].get())
                         # Employment length cannot exceed (age-18) years
-                        max_emp_length = age - 18
+                        max_emp_length = age - 16
                         if val > max_emp_length:
-                            return False, f"Employment length cannot exceed {max_emp_length} years (age minus 18)"
+                            return False, f"Employment length cannot exceed {max_emp_length} years (age minus 16)"
                     except ValueError:
                         # If age field is empty or invalid, do basic validation only
                         if val > 100:  # Set a reasonable maximum
                             return False, "Employment length seems too long"
-                    
-                    # If credit history length exists, ensure consistency
-                    try:
-                        credit_length = int(self.widgets['cb_person_cred_hist_length'].get())
-                        if val > credit_length:
-                            return False, "Employment length cannot exceed credit history length"
-                    except ValueError:
-                        pass  # Skip this validation if credit history length is empty or invalid
+            
                 
                 elif field == 'loan_int_rate':
                     if val < 0:
@@ -596,6 +629,18 @@ class LoanApplicationGUI:
                     errors.append(f"{props['label']} is required")
                 else:
                     valid, error_msg = self.validate_entry(value, props['validation'], field)
+                    if not valid:
+                        errors.append(f"{props['label']}: {error_msg}")
+
+        # Validate radio_with_other fields
+        for field, props in self.fields.items():
+            if props['type'] == 'radio_with_other':
+                value = self.radio_vars[field].get()
+                if not value:
+                    errors.append(f"{props['label']}: Please select one option")
+                elif value == "OTHER":
+                    other_value = self.other_entries[field].get().strip()
+                    valid, error_msg = self.validate_other_entry(other_value)
                     if not valid:
                         errors.append(f"{props['label']}: {error_msg}")
 
@@ -697,68 +742,125 @@ class LoanApplicationGUI:
             messagebox.showerror("Error", f"Error saving data: {str(e)}")        
 
     def submit_data(self):
+        logging.info("Starting data submission process")
+        
         errors = self.validate_inputs()
         if errors:
             error_message = "\n".join(errors)
+            logging.warning(f"Validation errors: {error_message}")
             messagebox.showerror("Validation Error", error_message)
             return
         
         try:
             file_path = Path('loan.csv')
+            lock = FileLock("loan.csv.lock", timeout=10)
             
-            # Check if file exists
-            if not file_path.exists():
-                # Create new DataFrame
-                df = pd.DataFrame(columns=['id'] + list(self.fields.keys()))
-                next_id = 1
-            else:
-                # Read existing data
-                df = pd.read_csv(file_path)
-                next_id = df['id'].max() + 1 if not df.empty else 1
-            
-            # Prepare new data
-            new_data = {'id': next_id}
-            
-            # Get all field values
-            for field, props in self.fields.items():
-                if props['type'] in ['entry', 'calculated']:
-                    value = self.widgets[field].get()
-                    # Type conversion for numerical fields
-                    if 'validation' in props:
-                        if props['validation'] == 'int':
-                            value = int(value) if value else 0
-                        elif props['validation'] == 'float':
-                            value = float(value) if value else 0.0
-                    new_data[field] = value
-                elif props['type'] in ['radio', 'radio_with_other']:
-                    value = self.radio_vars[field].get()
-                    if value == "OTHER" and field == 'loan_intent':
-                        value = self.other_entry.get()
-                    new_data[field] = value if value else 'None'  # Prevent nan values
-                elif props['type'] in ['checkbox', 'checkbox_with_other']:
-                    new_data[field] = self.get_checkbox_value(field)
-            
-            # Create new row DataFrame
-            new_df = pd.DataFrame([new_data])
-            
-            # Append new row to existing DataFrame
-            df = pd.concat([df, new_df], ignore_index=True)
-            
-            # Save entire DataFrame to CSV
-            df.to_csv(file_path, index=False)
-            
-            messagebox.showinfo("Success", "Data has been added successfully")
-            
-            # Reset form
-            self.reset_form()
-            
-            # Refresh preview windows
-            self.refresh_preview_windows()
+            with lock:
+                logging.info("File lock acquired")
+                
+                # Check if file exists
+                if not file_path.exists():
+                    logging.info("Creating new CSV file")
+                    df = pd.DataFrame(columns=['id'] + list(self.fields.keys()))
+                    next_id = 1
+                else:
+                    logging.info("Reading existing CSV file")
+                    df = pd.read_csv(file_path)
+                    next_id = df['id'].max() + 1 if not df.empty else 1
+                
+                # Prepare new data
+                new_data = {'id': next_id}
+                logging.info(f"Preparing new data with ID: {next_id}")
+                
+                # Get all field values
+                for field, props in self.fields.items():
+                    if props['type'] in ['entry', 'calculated']:
+                        value = self.widgets[field].get()
+                        if 'validation' in props:
+                            if props['validation'] == 'int':
+                                value = int(value) if value else 0
+                            elif props['validation'] == 'float':
+                                value = float(value) if value else 0.0
+                        new_data[field] = value
+                    elif props['type'] in ['radio', 'radio_with_other']:
+                        value = self.radio_vars[field].get()
+                        if value == "OTHER":
+                            value = self.other_entries[field].get()
+                            if not value.strip(): 
+                                raise ValueError(f"Please enter a value for Other in {props['label']}")
+                        new_data[field] = value if value else 'None'
+                    elif props['type'] in ['checkbox', 'checkbox_with_other']:
+                        new_data[field] = self.get_checkbox_value(field)
+                
+                # Create new row DataFrame
+                new_df = pd.DataFrame([new_data])
+                
+                # Append new row to existing DataFrame
+                df = pd.concat([df, new_df], ignore_index=True)
+                
+                # Save entire DataFrame to CSV
+                df.to_csv(file_path, index=False)
+                logging.info(f"Successfully saved data with ID: {next_id}")
+                
+                # Create backup after successful save
+                try:
+                    self.backup_data()
+                    logging.info("Backup created successfully")
+                except Exception as e:
+                    logging.error(f"Backup failed: {str(e)}")
+                    # Continue execution even if backup fails
+                
+                messagebox.showinfo("Success", "Data has been added successfully")
+                
+                # Reset form
+                self.reset_form()
+                logging.info("Form reset completed")
+                
+                # Refresh preview windows
+                self.refresh_preview_windows()
+                logging.info("Preview windows refreshed")
                         
+        except Timeout:
+            error_msg = "Could not acquire file lock. Please try again later."
+            logging.error(error_msg)
+            messagebox.showerror("Error", error_msg)
         except ValueError as ve:
-            messagebox.showerror("Validation Error", f"Invalid input: {str(ve)}")
+            error_msg = f"Invalid input: {str(ve)}"
+            logging.error(error_msg)
+            messagebox.showerror("Validation Error", error_msg)
         except Exception as e:
-            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+            error_msg = f"An error occurred: {str(e)}"
+            logging.error(f"Unexpected error: {error_msg}", exc_info=True)
+            messagebox.showerror("Error", error_msg)
+
+    def backup_data(self):
+        try:
+            from datetime import datetime
+            import shutil
+            import os
+            
+            backup_filename = f'loan_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            print(f"Creating backup: {backup_filename}")
+            logging.info(f"Attempting to create backup: {backup_filename}")
+            
+            # 使用专门的备份锁文件
+            with FileLock("backup.lock", timeout=10):
+                shutil.copy2('loan.csv', backup_filename)
+                
+                # 验证备份文件是否创建成功
+                if os.path.exists(backup_filename):
+                    print(f"Backup successfully created at: {backup_filename}")
+                    logging.info(f"Backup successfully created: {backup_filename}")
+                else:
+                    print("Backup file was not created")
+                    logging.error("Backup file was not created")
+                
+        except Exception as e:
+            error_msg = f"Backup failed: {str(e)}"
+            print(error_msg)
+            logging.error(error_msg)
+            raise
+        
 
     def refresh_preview_windows(self):
         """refresh all preview windows"""

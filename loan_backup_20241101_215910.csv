@@ -58658,9 +58658,4 @@ id,person_age,person_income,person_home_ownership,person_emp_length,loan_intent,
 58656,26,10000.0,Rent,2.0,Education,A,100000.0,3.0,10.0,Yes,2,0.0
 58657,25,10000.0,Rent,2.0,Education,A,10000.0,3.0,1.0,Yes,2,0.0
 58658,20,10000.0,Rent,2.0,Education,A,10000.0,3.0,1.0,Yes,2,0.0
-58659,20,22222.0,Rent,2.0,Education,A,12222.0,3.0,0.55,Yes,2,0.0
-58660,20,10000.0,Rent,2.0,Education,A,20000.0,2.0,2.0,Yes,2,1.0
-58661,20,10000.0,Rent,2.0,Education,A,1000.0,0.1,0.1,Yes,2,0.0
-58662,22,22222.0,Own,2.0, invest,A,222.0,0.1,0.01,Yes,2,0.0
-58663,18,20000.0,Rent,1.0,Education,A,1000.0,5.0,0.05,Yes,0,0.0
-58664,25,100000.0,Mortgage,2.0,Education,A,22222.0,2.2,0.22,Yes,2,0
+58659,20,22222.0,Rent,2.0,Education,A,12222.0,3.0,0.55,Yes,2,0

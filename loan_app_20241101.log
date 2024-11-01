@@ -1,0 +1,95 @@
+2024-11-01 21:45:50 - INFO - Starting data submission process
+2024-11-01 21:45:50 - INFO - File lock acquired
+2024-11-01 21:45:50 - INFO - Reading existing CSV file
+2024-11-01 21:45:50 - INFO - Preparing new data with ID: 58656
+2024-11-01 21:45:50 - INFO - Successfully saved data with ID: 58656
+2024-11-01 21:45:52 - INFO - Form reset completed
+2024-11-01 21:45:52 - INFO - Preview windows refreshed
+2024-11-01 21:53:09 - INFO - Starting data submission process
+2024-11-01 21:53:09 - INFO - File lock acquired
+2024-11-01 21:53:09 - INFO - Reading existing CSV file
+2024-11-01 21:53:09 - INFO - Preparing new data with ID: 58657
+2024-11-01 21:53:09 - INFO - Successfully saved data with ID: 58657
+2024-11-01 21:53:19 - ERROR - Backup failed: The file lock 'loan.csv.lock' could not be acquired.
+2024-11-01 21:53:19 - ERROR - Backup failed: The file lock 'loan.csv.lock' could not be acquired.
+2024-11-01 21:53:21 - INFO - Form reset completed
+2024-11-01 21:53:21 - INFO - Preview windows refreshed
+2024-11-01 21:57:11 - INFO - Starting data submission process
+2024-11-01 21:57:11 - INFO - File lock acquired
+2024-11-01 21:57:11 - INFO - Reading existing CSV file
+2024-11-01 21:57:11 - INFO - Preparing new data with ID: 58658
+2024-11-01 21:57:11 - INFO - Successfully saved data with ID: 58658
+2024-11-01 21:57:11 - INFO - Attempting to create backup: loan_backup_20241101_215711.csv
+2024-11-01 21:57:21 - ERROR - Backup failed: The file lock 'loan.csv.lock' could not be acquired.
+2024-11-01 21:57:21 - ERROR - Backup failed: The file lock 'loan.csv.lock' could not be acquired.
+2024-11-01 21:57:25 - INFO - Form reset completed
+2024-11-01 21:57:25 - INFO - Preview windows refreshed
+2024-11-01 21:59:10 - INFO - Starting data submission process
+2024-11-01 21:59:10 - INFO - File lock acquired
+2024-11-01 21:59:10 - INFO - Reading existing CSV file
+2024-11-01 21:59:10 - INFO - Preparing new data with ID: 58659
+2024-11-01 21:59:10 - INFO - Successfully saved data with ID: 58659
+2024-11-01 21:59:10 - INFO - Attempting to create backup: loan_backup_20241101_215910.csv
+2024-11-01 21:59:10 - INFO - Backup successfully created: loan_backup_20241101_215910.csv
+2024-11-01 21:59:10 - INFO - Backup created successfully
+2024-11-01 21:59:12 - INFO - Form reset completed
+2024-11-01 21:59:12 - INFO - Preview windows refreshed
+2024-11-01 22:09:57 - INFO - Starting data submission process
+2024-11-01 22:09:57 - INFO - File lock acquired
+2024-11-01 22:09:57 - INFO - Reading existing CSV file
+2024-11-01 22:09:57 - INFO - Preparing new data with ID: 58660
+2024-11-01 22:09:57 - INFO - Successfully saved data with ID: 58660
+2024-11-01 22:09:57 - INFO - Attempting to create backup: loan_backup_20241101_220957.csv
+2024-11-01 22:09:57 - INFO - Backup successfully created: loan_backup_20241101_220957.csv
+2024-11-01 22:09:57 - INFO - Backup created successfully
+2024-11-01 22:09:58 - INFO - Form reset completed
+2024-11-01 22:09:58 - ERROR - Unexpected error: An error occurred: 'LoanApplicationGUI' object has no attribute 'refresh_preview_windows'
+Traceback (most recent call last):
+  File "/Users/zhishengzhang/Capstone-Project/GUI.py", line 839, in submit_data
+    logging.info("Preview windows refreshed")
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'LoanApplicationGUI' object has no attribute 'refresh_preview_windows'
+2024-11-01 22:10:35 - INFO - Starting data submission process
+2024-11-01 22:10:35 - INFO - File lock acquired
+2024-11-01 22:10:35 - INFO - Reading existing CSV file
+2024-11-01 22:10:35 - INFO - Preparing new data with ID: 58661
+2024-11-01 22:10:36 - INFO - Successfully saved data with ID: 58661
+2024-11-01 22:10:36 - INFO - Attempting to create backup: loan_backup_20241101_221036.csv
+2024-11-01 22:10:36 - INFO - Backup successfully created: loan_backup_20241101_221036.csv
+2024-11-01 22:10:36 - INFO - Backup created successfully
+2024-11-01 22:10:37 - INFO - Form reset completed
+2024-11-01 22:10:37 - INFO - Preview windows refreshed
+2024-11-01 22:11:18 - INFO - Starting data submission process
+2024-11-01 22:11:18 - WARNING - Validation errors: Loan Purpose: Other option cannot be empty
+2024-11-01 22:11:32 - INFO - Starting data submission process
+2024-11-01 22:11:32 - INFO - File lock acquired
+2024-11-01 22:11:32 - INFO - Reading existing CSV file
+2024-11-01 22:11:32 - INFO - Preparing new data with ID: 58662
+2024-11-01 22:11:32 - INFO - Successfully saved data with ID: 58662
+2024-11-01 22:11:32 - INFO - Attempting to create backup: loan_backup_20241101_221132.csv
+2024-11-01 22:11:32 - INFO - Backup successfully created: loan_backup_20241101_221132.csv
+2024-11-01 22:11:32 - INFO - Backup created successfully
+2024-11-01 22:11:34 - INFO - Form reset completed
+2024-11-01 22:11:34 - INFO - Preview windows refreshed
+2024-11-01 22:13:27 - INFO - Starting data submission process
+2024-11-01 22:13:27 - WARNING - Validation errors: Loan amount cannot exceed 10 times annual income
+2024-11-01 22:13:44 - INFO - Starting data submission process
+2024-11-01 22:13:44 - INFO - File lock acquired
+2024-11-01 22:13:44 - INFO - Reading existing CSV file
+2024-11-01 22:13:44 - INFO - Preparing new data with ID: 58663
+2024-11-01 22:13:45 - INFO - Successfully saved data with ID: 58663
+2024-11-01 22:13:45 - INFO - Attempting to create backup: loan_backup_20241101_221345.csv
+2024-11-01 22:13:45 - INFO - Backup successfully created: loan_backup_20241101_221345.csv
+2024-11-01 22:13:45 - INFO - Backup created successfully
+2024-11-01 22:13:46 - INFO - Form reset completed
+2024-11-01 22:13:46 - INFO - Preview windows refreshed
+2024-11-01 22:14:14 - INFO - Starting data submission process
+2024-11-01 22:14:14 - INFO - File lock acquired
+2024-11-01 22:14:14 - INFO - Reading existing CSV file
+2024-11-01 22:14:14 - INFO - Preparing new data with ID: 58664
+2024-11-01 22:14:14 - INFO - Successfully saved data with ID: 58664
+2024-11-01 22:14:14 - INFO - Attempting to create backup: loan_backup_20241101_221414.csv
+2024-11-01 22:14:14 - INFO - Backup successfully created: loan_backup_20241101_221414.csv
+2024-11-01 22:14:14 - INFO - Backup created successfully
+2024-11-01 22:14:15 - INFO - Form reset completed
+2024-11-01 22:14:15 - INFO - Preview windows refreshed
