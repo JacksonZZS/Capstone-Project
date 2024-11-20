@@ -213,27 +213,352 @@ for model_name, model in models.items():
     plt.show()
 
 # %%
-from sklearn.model_selection import cross_val_score, StratifiedKFold
+def identify_default_patterns():
+    # 1. 计算特征重要性
+    feature_importance = pd.DataFrame({
+        'feature': X.columns,
+        'importance': models['LightGBM'].feature_importances_
+    }).sort_values('importance', ascending=False)
+    
+    # 2. 计算违约概率
+    default_proba = models['LightGBM'].predict_proba(X)[:, 1]
+    
+    # 3. 创建风险评分
+    risk_levels = pd.cut(default_proba, 
+                        bins=[0, 0.2, 0.4, 0.6, 0.8, 1.0],
+                        labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'])
+    
+    # 4. 创建分析数据框
+    analysis_df = pd.DataFrame({
+        'risk_score': default_proba,
+        'risk_level': risk_levels
+    })
+    
+    # 5. 分析每个风险等级的特征统计
+    risk_stats = {}
+    for feature in X.columns:
+        feature_stats = pd.DataFrame({
+            'feature_value': X[feature],
+            'risk_level': risk_levels
+        }).groupby('risk_level')['feature_value'].agg(['mean', 'std', 'count'])
+        risk_stats[feature] = feature_stats
+    
+    return {
+        'feature_importance': feature_importance,
+        'risk_scores': default_proba,
+        'risk_stats': risk_stats
+    }
 
-for m_name, model in models.items():
-    stratified_cv = StratifiedKFold(n_splits=5)
-    cv_scores = cross_val_score(model, X, y, cv=stratified_cv, scoring='roc_auc')
-    print(f'------------{m_name}')
-    print("Cross-validation scores:", cv_scores)
-    print("Mean cross-validation score:", cv_scores.mean())
+# 运行分析
+results = identify_default_patterns()
+
+# 显示结果
+print("Top 5 Risk Indicators:")
+print(results['feature_importance'].head())
+
+print("\nRisk Statistics for Top Feature:")
+top_feature = results['feature_importance'].iloc[0]['feature']
+print(f"\n{top_feature}:")
+print(results['risk_stats'][top_feature])
+
+# 可视化
+plt.figure(figsize=(15, 5))
+
+# 1. 特征重要性
+plt.subplot(1, 3, 1)
+top_5 = results['feature_importance'].head()
+plt.bar(range(5), top_5['importance'])
+plt.xticks(range(5), [f[:10] + '...' if len(f) > 10 else f for f in top_5['feature']], rotation=45)
+plt.title('Top 5 Risk Indicators')
+
+# 2. 风险分布
+plt.subplot(1, 3, 2)
+plt.hist(results['risk_scores'], bins=50)
+plt.title('Risk Score Distribution')
+plt.xlabel('Risk Score')
+plt.ylabel('Count')
+
+# 3. 最重要特征与风险关系
+plt.subplot(1, 3, 3)
+plt.scatter(X[top_feature], results['risk_scores'], alpha=0.5)
+plt.xlabel(top_feature)
+plt.ylabel('Risk Score')
+plt.title(f'Risk Score vs {top_feature}')
+
+plt.tight_layout()
+plt.show()
 
 # %%
-from sklearn.ensemble import VotingClassifier
+def analyze_loan_management():
+    # 1. 客户分层分析
+    def segment_customers():
+        # 使用模型预测的违约概率
+        default_proba = models['LightGBM'].predict_proba(X)[:, 1]
+        
+        # 基于收入和风险分层
+        segments = pd.DataFrame({
+            'income': X['person_income'],
+            'risk_score': default_proba
+        })
+        
+        # 定义分层标准
+        income_labels = ['Low', 'Medium', 'High']
+        risk_labels = ['Low', 'Medium', 'High']
+        
+        segments['income_level'] = pd.qcut(segments['income'], 
+                                         q=3, 
+                                         labels=income_labels)
+        segments['risk_level'] = pd.qcut(segments['risk_score'], 
+                                       q=3, 
+                                       labels=risk_labels)
+        
+        # 组合分层
+        segments['segment'] = segments.apply(
+            lambda x: f"{x['income_level']}_{x['risk_level']}", 
+            axis=1
+        )
+        
+        return segments
+    
+    # 2. 计算每个分层的关键指标
+    def calculate_segment_metrics(segments):
+        metrics = {}
+        for segment in segments['segment'].unique():
+            segment_data = segments[segments['segment'] == segment]
+            metrics[segment] = {
+                'count': len(segment_data),
+                'avg_income': segment_data['income'].mean(),
+                'avg_risk': segment_data['risk_score'].mean(),
+                'std_income': segment_data['income'].std(),
+                'std_risk': segment_data['risk_score'].std()
+            }
+        return metrics
+    
+    # 执行分析
+    segments = segment_customers()
+    metrics = calculate_segment_metrics(segments)
+    
+    return {
+        'segments': segments,
+        'metrics': metrics
+    }
 
-voting_clf = VotingClassifier(
-    estimators=[(name, model) for name, model in models.items()],
-    voting='soft'
-)
+# 运行分析
+results = analyze_loan_management()
 
-stratified_cv = StratifiedKFold(n_splits=10)
-cv_scores = cross_val_score(voting_clf, X, y, cv=stratified_cv, scoring='roc_auc')
-print(f'------------Voting Classifier')
-print("Cross-validation scores:", cv_scores)
-print("Mean cross-validation score:", cv_scores.mean())
+# 显示分层结果
+print("Customer Segment Analysis:")
+for segment, data in results['metrics'].items():
+    print(f"\n{segment}:")
+    print(f"Count: {data['count']:,}")
+    print(f"Average Income: ${data['avg_income']:,.2f} (±${data['std_income']:,.2f})")
+    print(f"Average Risk Score: {data['avg_risk']:.3f} (±{data['std_risk']:.3f})")
+
+# 可视化
+plt.figure(figsize=(15, 5))
+
+# 1. 分层客户数量分布
+plt.subplot(1, 3, 1)
+segment_counts = pd.Series({k: v['count'] for k, v in results['metrics'].items()})
+segment_counts.plot(kind='bar')
+plt.title('Customer Segments Distribution')
+plt.xticks(rotation=45)
+plt.ylabel('Count')
+
+# 2. 各分层平均风险
+plt.subplot(1, 3, 2)
+segment_risks = pd.Series({k: v['avg_risk'] for k, v in results['metrics'].items()})
+segment_risks.plot(kind='bar', color='orange')
+plt.title('Average Risk by Segment')
+plt.xticks(rotation=45)
+plt.ylabel('Risk Score')
+
+# 3. 收入与风险关系
+plt.subplot(1, 3, 3)
+plt.scatter(results['segments']['income'], 
+           results['segments']['risk_score'],
+           alpha=0.3,
+           c=results['segments']['risk_score'],
+           cmap='YlOrRd')
+plt.colorbar(label='Risk Score')
+plt.xlabel('Income')
+plt.ylabel('Risk Score')
+plt.title('Risk vs Income Distribution')
+
+plt.tight_layout()
+plt.show()
+
+# %%
+def optimize_pricing_strategy(customer_data):
+    # 构建风险定价矩阵
+    def create_pricing_matrix():
+        # 基础利率矩阵 (示例数值)
+        base_rates = {
+            'Low': {
+                'Low': 0.05,    # 低风险低收入
+                'Medium': 0.045, # 低风险中等收入
+                'High': 0.04    # 低风险高收入
+            },
+            'Medium': {
+                'Low': 0.07,
+                'Medium': 0.065,
+                'High': 0.06
+            },
+            'High': {
+                'Low': 0.09,
+                'Medium': 0.085,
+                'High': 0.08
+            }
+        }
+        return base_rates
+    
+    # 计算风险调整系数
+    def calculate_risk_adjustments(segment_metrics):
+        adjustments = {}
+        for segment, metrics in segment_metrics.items():
+            # 基于风险分数和收入稳定性的调整
+            risk_factor = metrics['avg_risk']
+            income_stability = metrics['std_income'] / metrics['avg_income']
+            
+            # 综合调整系数
+            adjustment = (1 + risk_factor) * (1 + income_stability * 0.1)
+            adjustments[segment] = adjustment
+        return adjustments
+    
+    # 生成最终定价建议
+    def generate_pricing_recommendations(base_rates, adjustments):
+        recommendations = {}
+        for segment, adjustment in adjustments.items():
+            income_level, risk_level = segment.split('_')
+            base_rate = base_rates[risk_level][income_level]
+            final_rate = base_rate * adjustment
+            
+            recommendations[segment] = {
+                'base_rate': base_rate,
+                'risk_adjustment': adjustment,
+                'final_rate': final_rate,
+                'rate_range': (final_rate * 0.95, final_rate * 1.05)
+            }
+        return recommendations
+    
+    # 执行定价策略优化
+    base_rates = create_pricing_matrix()
+    risk_adjustments = calculate_risk_adjustments(customer_data['metrics'])
+    pricing_recommendations = generate_pricing_recommendations(base_rates, risk_adjustments)
+    
+    return pricing_recommendations
+
+# 应用定价策略
+pricing_strategy = optimize_pricing_strategy(results)
+
+# 显示定价建议
+print("\nPricing Strategy Recommendations:")
+for segment, rates in pricing_strategy.items():
+    print(f"\n{segment}:")
+    print(f"Base Rate: {rates['base_rate']:.2%}")
+    print(f"Risk Adjustment: {rates['risk_adjustment']:.3f}x")
+    print(f"Final Rate: {rates['final_rate']:.2%}")
+    print(f"Suggested Range: {rates['rate_range'][0]:.2%} - {rates['rate_range'][1]:.2%}")
+
+# %%
+def optimize_pricing_strategy(customer_data):
+    def optimize_pricing(segment):
+        pricing_rules = {
+            'low_risk': {
+                'base_rate': 0.045,  # 4.5%
+                'max_adjustment': 1.03,  # 最大上浮3%
+                'volume_discount': 0.002  # 0.2%
+            },
+            'medium_risk': {
+                'base_rate': 0.065,  # 6.5%
+                'max_adjustment': 1.05,  # 最大上浮5%
+                'volume_discount': 0.001  # 0.1%
+            },
+            'high_risk': {
+                'base_rate': 0.080,  # 8.0%
+                'max_adjustment': 1.40,  # 最大上浮40%
+                'volume_discount': 0.000  # 无折扣
+            }
+        }
+        return pricing_rules[segment]
+
+    def assess_risk_level(metrics):
+        if metrics['avg_risk'] < 0.01:
+            return 'low_risk'
+        elif metrics['avg_risk'] < 0.05:
+            return 'medium_risk'
+        else:
+            return 'high_risk'
+
+    def calculate_final_rate(customer_segment, loan_amount):
+        risk_level = assess_risk_level(customer_data['metrics'][customer_segment])
+        pricing_rule = optimize_pricing(risk_level)
+        
+        # 基础利率
+        final_rate = pricing_rule['base_rate']
+        
+        # 风险调整 - 修正计算方式
+        risk_adjustment = min(1 + customer_data['metrics'][customer_segment]['avg_risk'], 
+                            pricing_rule['max_adjustment'])
+        final_rate *= risk_adjustment
+        
+        # 批量折扣
+        if loan_amount > 50000:
+            final_rate -= pricing_rule['volume_discount']
+            
+        return {
+            'base_rate': pricing_rule['base_rate'],
+            'risk_adjustment': risk_adjustment,
+            'final_rate': final_rate,
+            'volume_discount': pricing_rule['volume_discount'],
+            'risk_level': risk_level
+        }
+
+    pricing_recommendations = {}
+    for segment in customer_data['metrics'].keys():
+        avg_loan = customer_data['metrics'][segment]['avg_loan_amount']
+        rates = calculate_final_rate(segment, avg_loan)
+        
+        pricing_recommendations[segment] = {
+            'risk_level': rates['risk_level'],
+            'base_rate': rates['base_rate'],
+            'risk_adjustment': rates['risk_adjustment'],
+            'final_rate': rates['final_rate'],
+            'volume_discount': rates['volume_discount'],
+            'rate_range': (rates['final_rate'] * 0.95, rates['final_rate'] * 1.05)
+        }
+    
+    return pricing_recommendations
+
+# 测试数据
+customer_segments = {
+    'metrics': {
+        'segment_1': {
+            'avg_risk': 0.008,
+            'avg_loan_amount': 30000
+        },
+        'segment_2': {
+            'avg_risk': 0.03,
+            'avg_loan_amount': 60000
+        },
+        'segment_3': {
+            'avg_risk': 0.07,
+            'avg_loan_amount': 40000
+        }
+    }
+}
+
+# 运行优化定价策略
+pricing_strategy = optimize_pricing_strategy(customer_segments)
+
+# 显示定价建议
+for segment, rates in pricing_strategy.items():
+    print(f"\n{segment}:")
+    print(f"Risk Level: {rates['risk_level']}")
+    print(f"Base Rate: {rates['base_rate']:.2%}")
+    print(f"Risk Adjustment: {rates['risk_adjustment']:.3f}x")
+    print(f"Volume Discount: {rates['volume_discount']:.2%}")
+    print(f"Final Rate: {rates['final_rate']:.2%}")
+    print(f"Suggested Range: {rates['rate_range'][0]:.2%} - {rates['rate_range'][1]:.2%}")
 
 
