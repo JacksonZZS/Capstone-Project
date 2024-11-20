@@ -561,4 +561,83 @@ for segment, rates in pricing_strategy.items():
     print(f"Final Rate: {rates['final_rate']:.2%}")
     print(f"Suggested Range: {rates['rate_range'][0]:.2%} - {rates['rate_range'][1]:.2%}")
 
+# %%
+# 从客户分层分析中发现
+segments = results['segments']
+high_value_segments = segments[
+    (segments['income_level'] == 'High') & 
+    (segments['risk_level'] == 'Low')
+]
+
+
+high_value_segments
+
+# %%
+
+loan_performance = pd.DataFrame({
+    'loan_amount': X['loan_amnt'],
+    'risk_score': models['LightGBM'].predict_proba(X)[:, 1]
+}).groupby(pd.qcut(X['loan_amnt'], 5))['risk_score'].mean()
+
+def analyze_risk_pricing():
+    # 获取预测概率
+    default_proba = models['LightGBM'].predict_proba(X)[:, 1]
+    
+    # 创建分析框架
+    analysis_df = pd.DataFrame({
+        'loan_amount': X['loan_amnt'],
+        'income': X['person_income'],
+        'risk_score': default_proba
+    })
+    
+    return analysis_df
+
+pricing_analysis = analyze_risk_pricing()
+
+pricing_analysis
+
+# %%
+def calculate_risk_based_pricing(df):
+    # 基础利率设置
+    base_rate = 0.10  # 10% 基准利率
+    
+    # 计算风险调整系数
+    risk_scores = models['LightGBM'].predict_proba(df)[:, 1]
+    
+    # 创建定价框架
+    pricing_df = pd.DataFrame({
+        'loan_amount': df['loan_amnt'],
+        'income': df['person_income'],
+        'risk_score': risk_scores
+    })
+    
+    # 计算建议利率
+    pricing_df['suggested_rate'] = base_rate + (risk_scores * 0.05)
+    
+    return pricing_df
+
+pricing_analysis = calculate_risk_based_pricing(X)
+
+pricing_analysis
+
+# %%
+# 分析客户行为模式
+customer_behavior = analyze_loan_management()
+retention_metrics = customer_behavior['metrics']
+
+customer_behavior,retention_metrics 
+
+# %%
+# 从风险模式识别中发现
+risk_patterns = identify_default_patterns()
+high_risk_indicators = risk_patterns['feature_importance'].head()
+high_risk_indicators
+
+# %%
+# 客户群体分析
+segment_analysis = results['metrics']
+for segment, metrics in segment_analysis.items():
+    segment_performance = metrics['avg_risk']
+    segment_size = metrics['count']
+
 
