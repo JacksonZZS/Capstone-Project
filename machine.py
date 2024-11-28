@@ -163,13 +163,6 @@ sns.heatmap(df.corr(method='spearman'), annot=True, fmt=".1")
 plt.show()
 
 # %%
-df.dtypes
-
-
-
-
-# %%
-from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
@@ -183,6 +176,7 @@ y = df[target]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.3, random_state=42, stratify=y
+    
 )
 
 models = {
@@ -213,80 +207,28 @@ for model_name, model in models.items():
     plt.show()
 
 # %%
-def identify_default_patterns():
-    # 1. 计算特征重要性
-    feature_importance = pd.DataFrame({
-        'feature': X.columns,
-        'importance': models['LightGBM'].feature_importances_
-    }).sort_values('importance', ascending=False)
-    
-    # 2. 计算违约概率
-    default_proba = models['LightGBM'].predict_proba(X)[:, 1]
-    
-    # 3. 创建风险评分
-    risk_levels = pd.cut(default_proba, 
-                        bins=[0, 0.2, 0.4, 0.6, 0.8, 1.0],
-                        labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'])
-    
-    # 4. 创建分析数据框
-    analysis_df = pd.DataFrame({
-        'risk_score': default_proba,
-        'risk_level': risk_levels
-    })
-    
-    # 5. 分析每个风险等级的特征统计
-    risk_stats = {}
-    for feature in X.columns:
-        feature_stats = pd.DataFrame({
-            'feature_value': X[feature],
-            'risk_level': risk_levels
-        }).groupby('risk_level')['feature_value'].agg(['mean', 'std', 'count'])
-        risk_stats[feature] = feature_stats
-    
-    return {
-        'feature_importance': feature_importance,
-        'risk_scores': default_proba,
-        'risk_stats': risk_stats
-    }
+from joblib import dump
+import os
 
-# 运行分析
-results = identify_default_patterns()
+# 保存路径为当前文件夹
+model_path = './'  # 或者直接使用空字符串 model_path = ''
 
-# 显示结果
-print("Top 5 Risk Indicators:")
-print(results['feature_importance'].head())
+# 假设您已经训练好了 LightGBM 和 XGBoost 模型
+lgbm_model = models['LightGBM']
+xgb_model = models['XGBoost']
 
-print("\nRisk Statistics for Top Feature:")
-top_feature = results['feature_importance'].iloc[0]['feature']
-print(f"\n{top_feature}:")
-print(results['risk_stats'][top_feature])
+# 保存模型到当前文件夹
+dump(lgbm_model, os.path.join(model_path, 'light_gbm_model.joblib'))
+print("LightGBM 模型已保存至:", os.path.join(model_path, 'light_gbm_model.joblib'))
 
-# 可视化
-plt.figure(figsize=(15, 5))
+dump(xgb_model, os.path.join(model_path, 'xgb_model.joblib'))
+print("XGBoost 模型已保存至:", os.path.join(model_path, 'xgb_model.joblib'))
 
-# 1. 特征重要性
-plt.subplot(1, 3, 1)
-top_5 = results['feature_importance'].head()
-plt.bar(range(5), top_5['importance'])
-plt.xticks(range(5), [f[:10] + '...' if len(f) > 10 else f for f in top_5['feature']], rotation=45)
-plt.title('Top 5 Risk Indicators')
 
-# 2. 风险分布
-plt.subplot(1, 3, 2)
-plt.hist(results['risk_scores'], bins=50)
-plt.title('Risk Score Distribution')
-plt.xlabel('Risk Score')
-plt.ylabel('Count')
-
-# 3. 最重要特征与风险关系
-plt.subplot(1, 3, 3)
-plt.scatter(X[top_feature], results['risk_scores'], alpha=0.5)
-plt.xlabel(top_feature)
-plt.ylabel('Risk Score')
-plt.title(f'Risk Score vs {top_feature}')
-
-plt.tight_layout()
-plt.show()
+# %% [markdown]
+# Opportunity 1: 客户分层分析
+# 描述：通过收入和风险分数对客户进行分层，识别不同客户群体的特征，为后续策略（如定价、营销、风险管理）提供支持。
+# 
 
 # %%
 def analyze_loan_management():
@@ -301,6 +243,10 @@ def analyze_loan_management():
             'risk_score': default_proba
         })
         
+        #客户分层逻辑： action1:
+        #使用 LightGBM 模型预测违约概率（default_proba）。
+        #根据收入水平（income）和风险分数（risk_score），使用 pd.qcut 将客户分为低、中、高三个层级。
+        #使用组合逻辑生成客户分层标签（如 Low_Low, Medium_High）。
         # 定义分层标准
         income_labels = ['Low', 'Medium', 'High']
         risk_labels = ['Low', 'Medium', 'High']
@@ -320,7 +266,7 @@ def analyze_loan_management():
         
         return segments
     
-    # 2. 计算每个分层的关键指标
+    # action2. 计算每个分层的关键指标
     def calculate_segment_metrics(segments):
         metrics = {}
         for segment in segments['segment'].unique():
@@ -354,6 +300,10 @@ for segment, data in results['metrics'].items():
     print(f"Average Income: ${data['avg_income']:,.2f} (±${data['std_income']:,.2f})")
     print(f"Average Risk Score: {data['avg_risk']:.3f} (±{data['std_risk']:.3f})")
 
+
+
+# %%
+#action3:
 # 可视化
 plt.figure(figsize=(15, 5))
 
@@ -388,9 +338,14 @@ plt.title('Risk vs Income Distribution')
 plt.tight_layout()
 plt.show()
 
+# %% [markdown]
+# Opportunity 2: 定价策略优化
+# 描述：通过基于收入和风险水平的定价矩阵优化贷款利率，提升盈利能力，同时控制风险。
+
 # %%
 def optimize_pricing_strategy(customer_data):
-    # 构建风险定价矩阵
+    # action1 :构建风险定价矩阵,定义了以收入和风险为基础的利率矩阵（base_rates），为不同组合的客户提供基础利率
+    
     def create_pricing_matrix():
         # 基础利率矩阵 (示例数值)
         base_rates = {
@@ -412,7 +367,7 @@ def optimize_pricing_strategy(customer_data):
         }
         return base_rates
     
-    # 计算风险调整系数
+    # action2 :计算风险调整系数:根据客户分层的平均风险和收入稳定性（收入标准差/均值）计算风险调整系数。
     def calculate_risk_adjustments(segment_metrics):
         adjustments = {}
         for segment, metrics in segment_metrics.items():
@@ -425,7 +380,7 @@ def optimize_pricing_strategy(customer_data):
             adjustments[segment] = adjustment
         return adjustments
     
-    # 生成最终定价建议
+    # action3 :生成最终定价建议 :将基础利率与风险调整系数结合，生成最终贷款利率及建议利率范围。
     def generate_pricing_recommendations(base_rates, adjustments):
         recommendations = {}
         for segment, adjustment in adjustments.items():
@@ -460,249 +415,13 @@ for segment, rates in pricing_strategy.items():
     print(f"Final Rate: {rates['final_rate']:.2%}")
     print(f"Suggested Range: {rates['rate_range'][0]:.2%} - {rates['rate_range'][1]:.2%}")
 
-# %%
-def optimize_pricing_strategy(customer_data):
-    def optimize_pricing(segment):
-        pricing_rules = {
-            'low_risk': {
-                'base_rate': 0.045,  # 4.5%
-                'max_adjustment': 1.03,  # 最大上浮3%
-                'volume_discount': 0.002  # 0.2%
-            },
-            'medium_risk': {
-                'base_rate': 0.065,  # 6.5%
-                'max_adjustment': 1.05,  # 最大上浮5%
-                'volume_discount': 0.001  # 0.1%
-            },
-            'high_risk': {
-                'base_rate': 0.080,  # 8.0%
-                'max_adjustment': 1.40,  # 最大上浮40%
-                'volume_discount': 0.000  # 无折扣
-            }
-        }
-        return pricing_rules[segment]
-
-    def assess_risk_level(metrics):
-        if metrics['avg_risk'] < 0.01:
-            return 'low_risk'
-        elif metrics['avg_risk'] < 0.05:
-            return 'medium_risk'
-        else:
-            return 'high_risk'
-
-    def calculate_final_rate(customer_segment, loan_amount):
-        risk_level = assess_risk_level(customer_data['metrics'][customer_segment])
-        pricing_rule = optimize_pricing(risk_level)
-        
-        # 基础利率
-        final_rate = pricing_rule['base_rate']
-        
-        # 风险调整 - 修正计算方式
-        risk_adjustment = min(1 + customer_data['metrics'][customer_segment]['avg_risk'], 
-                            pricing_rule['max_adjustment'])
-        final_rate *= risk_adjustment
-        
-        # 批量折扣
-        if loan_amount > 50000:
-            final_rate -= pricing_rule['volume_discount']
-            
-        return {
-            'base_rate': pricing_rule['base_rate'],
-            'risk_adjustment': risk_adjustment,
-            'final_rate': final_rate,
-            'volume_discount': pricing_rule['volume_discount'],
-            'risk_level': risk_level
-        }
-
-    pricing_recommendations = {}
-    for segment in customer_data['metrics'].keys():
-        avg_loan = customer_data['metrics'][segment]['avg_loan_amount']
-        rates = calculate_final_rate(segment, avg_loan)
-        
-        pricing_recommendations[segment] = {
-            'risk_level': rates['risk_level'],
-            'base_rate': rates['base_rate'],
-            'risk_adjustment': rates['risk_adjustment'],
-            'final_rate': rates['final_rate'],
-            'volume_discount': rates['volume_discount'],
-            'rate_range': (rates['final_rate'] * 0.95, rates['final_rate'] * 1.05)
-        }
-    
-    return pricing_recommendations
-
-# 测试数据
-customer_segments = {
-    'metrics': {
-        'segment_1': {
-            'avg_risk': 0.008,
-            'avg_loan_amount': 30000
-        },
-        'segment_2': {
-            'avg_risk': 0.03,
-            'avg_loan_amount': 60000
-        },
-        'segment_3': {
-            'avg_risk': 0.07,
-            'avg_loan_amount': 40000
-        }
-    }
-}
-
-# 运行优化定价策略
-pricing_strategy = optimize_pricing_strategy(customer_segments)
-
-# 显示定价建议
-for segment, rates in pricing_strategy.items():
-    print(f"\n{segment}:")
-    print(f"Risk Level: {rates['risk_level']}")
-    print(f"Base Rate: {rates['base_rate']:.2%}")
-    print(f"Risk Adjustment: {rates['risk_adjustment']:.3f}x")
-    print(f"Volume Discount: {rates['volume_discount']:.2%}")
-    print(f"Final Rate: {rates['final_rate']:.2%}")
-    print(f"Suggested Range: {rates['rate_range'][0]:.2%} - {rates['rate_range'][1]:.2%}")
+# %% [markdown]
+# Opportunity 3: 交叉销售机会识别
+# 描述：识别中高收入、低风险的客户群体，作为交叉销售目标客户。
 
 # %%
-        },
-        'product_actions': {
-            'premium_products': '推荐高端理财产品',
-            'custom_loans': '定制化融资方案',
-            'priority': 'Medium'
-        },
-        'risk_actions': {
-            'monitoring': '建立预警监控机制',
-            'priority': 'High'
-        }
-    }
-
-# 3. 生成行动计划
-action_plan = define_high_value_actions(high_value_segments)
-
-# 4. 获取优先行动项
-high_priority_actions = {
-    key: actions for key, actions in action_plan.items()
-    if actions['priority'] == 'High'
-    
-}
-
-
-# %%
-
-loan_performance = pd.DataFrame({
-    'loan_amount': X['loan_amnt'],
-    'risk_score': models['LightGBM'].predict_proba(X)[:, 1]
-}).groupby(pd.qcut(X['loan_amnt'], 5))['risk_score'].mean()
-
-def analyze_risk_pricing():
-    # 获取预测概率
-    default_proba = models['LightGBM'].predict_proba(X)[:, 1]
-    
-    # 创建分析框架
-    analysis_df = pd.DataFrame({
-        'loan_amount': X['loan_amnt'],
-        'income': X['person_income'],
-        'risk_score': default_proba
-    })
-    
-    return analysis_df
-
-pricing_analysis = analyze_risk_pricing()
-
-pricing_analysis
-
-# %%
-def calculate_risk_based_pricing(df):
-    # 基础利率设置
-    base_rate = 0.10  # 10% 基准利率
-    
-    # 计算风险调整系数
-    risk_scores = models['LightGBM'].predict_proba(df)[:, 1]
-    
-    # 创建定价框架
-    pricing_df = pd.DataFrame({
-        'loan_amount': df['loan_amnt'],
-        'income': df['person_income'],
-        'risk_score': risk_scores
-    })
-    
-    # 计算建议利率
-    pricing_df['suggested_rate'] = base_rate + (risk_scores * 0.05)
-    
-    return pricing_df
-
-pricing_analysis = calculate_risk_based_pricing(X)
-
-pricing_analysis
-
-# %%
-# 分析客户行为模式
-customer_behavior = analyze_loan_management()
-retention_metrics = customer_behavior['metrics']
-
-customer_behavior,retention_metrics 
-
-# %%
-# 从风险模式识别中发现
-risk_patterns = identify_default_patterns()
-high_risk_indicators = risk_patterns['feature_importance'].head()
-high_risk_indicators
-
-# %%
-# 客户群体分析
-segment_analysis = results['metrics']
-for segment, metrics in segment_analysis.items():
-    segment_performance = metrics['avg_risk']
-    segment_size = metrics['count']
-
-# %%
-# Opportunity 1: 高价值客户群识别
-
-# 从客户分层分析中发现
 segments = results['segments']
-high_value_segments = segments[
-    (segments['income_level'] == 'High') & 
-    (segments['risk_level'] == 'Low')
-]
-
-
-high_value_segments
-
-# %%
-#actions
-def define_high_value_actions(high_value_segments):
-    """
-    定义高价值客户的关键行动方案
-    """
-    return {
-        'service_actions': {
-            'vip_service': '提供专属客户经理',
-            'priority': 'High',
-            'target_customers':  high_value_segments.index.tolist()
-        },
-        'product_actions': {
-            'premium_products': '推荐高端理财产品',
-            'custom_loans': '定制化融资方案',
-            'priority': 'Medium'
-        },
-        'risk_actions': {
-            'monitoring': '建立预警监控机制',
-            'priority': 'High'
-        }
-    }
-
-# 3. 生成行动计划
-action_plan = define_high_value_actions(high_value_segments)
-
-# 4. 获取优先行动项
-high_priority_actions = {
-    key: actions for key, actions in action_plan.items()
-    if actions['priority'] == 'High'
-    
-}
-
-
-# %%
-# Opportunity 2: 交叉销售机会客户群识别
-segments = results['segments']
+#action 1 :筛选交叉销售目标客户：筛选中高收入（Medium 或 High）且低风险（Low）的客户。排除已识别的高价值客户（如高收入低风险的客户）。
 cross_sell_segments = segments[
     (segments['income_level'].isin(['Medium', 'High'])) &  # 中高收入
     (segments['risk_level'] == 'Low') &                    # 低风险
@@ -710,7 +429,7 @@ cross_sell_segments = segments[
       (segments['risk_level'] == 'Low'))
 ]
 
-# 相应的Actions定义
+# action2 :定义交叉销售行动建议：明确目标客户清单的生成标准。推荐适合该群体的产品（如信用卡升级、理财产品等）。提出营销活动的设计渠道（如推送、客户经理沟通等）
 def define_cross_sell_actions(cross_sell_segments):
     actions = {
         'target_list': {
@@ -756,241 +475,315 @@ def define_cross_sell_actions(cross_sell_segments):
 cross_sell_actions = define_cross_sell_actions(cross_sell_segments)
 
 # %%
-# Opportunity 3: 定价优化机会
-pricing_analysis = calculate_risk_based_pricing(X)
+#Opportunity 1: Enhanced Credit Risk Assessment
 
-pricing_optimization_segments = pricing_analysis[
-    (pricing_analysis['risk_score'] < 0.3) &                # 风险可控
-    (pricing_analysis['loan_amount'] >= 50000) &           # 大额贷款
-    (pricing_analysis['suggested_rate'] > 0.12)            # 当前定价偏高
-]
 
-# 相应的Actions定义
-def define_pricing_optimization_actions(optimization_segments):
+
+# %% [markdown]
+# Opportunity 4: Enhanced Credit Risk Assessment
+# Description: Improve the accuracy of predicting which loan applicants might default, thus reducing financial losses.
+# 
+# Actions:
+# 
+# Model Refinement: Utilize advanced machine learning techniques such as ensemble models (Random Forest, Gradient Boosting) or deep learning models to improve prediction accuracy.
+# Feature Engineering: Experiment with additional features that could influence loan repayment, such as economic indicators or more detailed employment history.
+
+# %%
+import pandas as pd
+import numpy as np
+from joblib import load
+import os
+
+def load_models():
+    # 当前文件夹路径
+    model_path = './'  # 或者直接使用空字符串 model_path = ''
+    
+    # 加载保存的模型
+    light_gbm_model = load(os.path.join(model_path, 'light_gbm_model.joblib'))
+    xgb_model = load(os.path.join(model_path, 'xgb_model.joblib'))
+    
+    # 返回加载的模型
+    return {
+        'LightGBM': light_gbm_model,
+        'XGBoost': xgb_model
+    }
+
+# Load dataset - Assuming the DataFrame is named df
+df = pd.read_csv('loan.csv')
+models = load_models()  # Assuming function to load pre-trained models
+
+# %% [markdown]
+# Step 2: Identifying High-Value Customers
+# High-value customers in this scenario might be defined as those with high income and low risk levels.
+
+# %%
+def identify_high_value_segments(df):
+    df_high_value = df[(df['person_income'] > df['person_income'].quantile(0.8)) & (df['loan_status'] == 0)]
+    return df_high_value
+
+high_value_segments = identify_high_value_segments(df)
+print("High Value Segments Identified:\n", high_value_segments.shape)
+
+# %% [markdown]
+# Step 3: Define Actions
+# Here, we can recommend actions to enhance service and products offered to these segments.
+
+# %%
+def define_high_value_actions(high_value_segments):
     actions = {
-        'rate_adjustment': {
+        'service_actions': {
+            'vip_service': 'Provide dedicated account manager',
             'priority': 'High',
-            'description': '利率优化方案',
-            'components': {
-                'base_rate_review': '重新评估基准利率',
-                'risk_premium': '优化风险溢价计算',
-                'volume_discount': '引入规模折扣'
-            }
+            'target_customers': high_value_segments.index.tolist()
         },
-        'competitive_analysis': {
-            'priority': 'Medium',
-            'description': '竞争对手定价分析',
-            'focus_areas': [
-                '市场利率水平跟踪',
-                '竞品定价策略分析',
-                '客户流失风险评估'
-            ]
+        'product_actions': {
+            'premium_products': 'Recommend high-end finance products',
+            'custom_loans': 'Customized financing solutions',
+            'priority': 'Medium'
         },
-        'implementation_plan': {
-            'priority': 'High',
-            'description': '实施计划',
-            'steps': {
-                'pilot_testing': '试点测试新定价',
-                'customer_communication': '客户沟通策略',
-                'system_updates': '系统更新计划'
-            }
-        },
-        'monitoring_framework': {
-            'priority': 'Medium',
-            'description': '效果监控框架',
-            'metrics': [
-                '利率调整后的转化率',
-                '收益影响分析',
-                '客户满意度跟踪',
-                '市场份额变化'
-            ]
+        'risk_actions': {
+            'monitoring': 'Establish alert monitoring system',
+            'priority': 'High'
         }
     }
     return actions
 
-# 执行actions定义
-pricing_optimization_actions = define_pricing_optimization_actions(pricing_optimization_segments)
+action_plan = define_high_value_actions(high_value_segments)
+print("Action Plan for High Value Customers:")
+print(action_plan)
+
+# %% [markdown]
+# Step 4: Implementation Plan (Mock-up)
+# This illustrates limitations owing to data-sensitive operations once model assumptions and strategies have been simulated.
 
 # %%
-# Opportunity 4: 风险预警与管理优化
-risk_patterns = identify_default_patterns()
+def implement_actions(action_plan):
+    print(f"Implementing {action_plan['service_actions']['vip_service']}")
+    # Code directly affecting banking systems with API calls or database updates would be implemented here and not run in a typical environment for security.
 
-# 1. 首先查看字典结构
-print("Available keys:", risk_patterns.keys())
+implementation_details = implement_actions(action_plan)
+print("Implementation Completed.")
 
-# 2. 修改为处理字典格式的代码
-def process_risk_patterns(risk_data):
-    high_risk_cases = {
-        'risk_metrics': risk_data.get('risk_metrics', {}),
-        'warning_indicators': {
-            'high_risk': [],
-            'medium_risk': [],
-            'low_risk': []
-        }
-    }
-    
-    # 处理风险指标
-    for customer_id, metrics in risk_data.get('customer_metrics', {}).items():
-        risk_level = metrics.get('risk_score', 0)
-        payment_status = metrics.get('payment_status', '')
-        utilization = metrics.get('utilization', 0)
-        
-        if (risk_level > 0.7 or 
-            payment_status == 'overdue' or 
-            utilization > 0.8):
-            high_risk_cases['warning_indicators']['high_risk'].append(customer_id)
-            
-    return high_risk_cases
-
-# 3. 执行风险分析
-early_warning_segments = process_risk_patterns(risk_patterns)
-
-# 4. 定义相应的actions
-def define_risk_management_actions(warning_segments):
-    actions = {
-        'early_warning_system': {
-            'priority': 'High',
-            'description': '建立预警机制',
-            'components': {
-                'risk_indicators': [
-                    '风险分数',
-                    '支付状态',
-                    '额度使用率'
-                ],
-                'alert_thresholds': {
-                    'risk_score': '>0.7',
-                    'payment_status': 'overdue',
-                    'utilization': '>80%'
-                }
-            }
-        }
-    }
-    return actions
-
-# 5. 执行
-risk_management_actions = define_risk_management_actions(early_warning_segments)
+# %% [markdown]
+# Step 5: Monitoring & Adjustments
+# The performance of actions taken can be simulated or captured using metrics like customer satisfaction and engagement rates. In a real-world application, you'd periodically review these analytics to fine-tune operations.
 
 # %%
-# Opportunity 5: 客户忠诚度提升计划
-def identify_loyalty_opportunity():
-    # 从现有分析中获取客户行为数据
-    customer_behavior = analyze_loan_management()
-    retention_metrics = customer_behavior['metrics']
-    
-    loyalty_segments = {
-        'stable_customers': [],
-        'at_risk_customers': [],
-        'growth_potential': []
-    }
-    
-    # 定义忠诚度计划的Actions
-    actions = {
-        'reward_program': {
-            'priority': 'High',
-            'description': '忠诚度奖励体系',
-            'components': {
-                'points_system': {
-                    'payment_on_time': '100点',
-                    'product_adoption': '200点',
-                    'referral': '300点'
-                },
-                'rewards': [
-                    '利率优惠',
-                    '费用减免',
-                    '额度提升'
-                ]
-            }
-        },
-        'engagement_strategy': {
-            'priority': 'Medium',
-            'description': '客户互动策略',
-            'activities': {
-                'regular_communication': [
-                    '个性化内容推送',
-                    '生日/节日关怀',
-                    '产品使用建议'
-                ],
-                'feedback_collection': [
-                    '满意度调查',
-                    '产品建议收集',
-                    '服务体验反馈'
-                ]
-            }
-        },
-        'retention_program': {
-            'priority': 'High',
-            'description': '客户保留计划',
-            'measures': {
-                'early_warning': '流失风险预警',
-                'personalized_offers': '个性化挽留方案',
-                'service_upgrade': '服务等级提升'
-            }
-        },
-        'value_added_services': {
-            'priority': 'Medium',
-            'description': '增值服务',
-            'services': [
-                '财务咨询',
-                '专属客户经理',
-                '优先服务通道'
-            ]
-        }
-    }
-    
+def monitor_performance(high_value_segments):
+    # Implementation of analytics dashboards or reports would directly pull new data for those segments
+    print(f"Monitoring high-value customers, current segment count: {len(high_value_segments)}")
+
+monitor_performance(high_value_segments)
+
+# %% [markdown]
+# Summary
+# This would provide you a strategic implementation of activities to maximize business with high-value customers based on sample loan data. Each step would further need detailed specifications depending on tool integrations and compliance requirements within your infrastructure. This simulation helps in understanding the flow but requires real-time data and systems to execute.
+
+# %% [markdown]
+# Opportunity 5: 高风险客户的风险缓解 的实现代码，涵盖了 贷后跟踪与提醒服务 和 提高贷款审批门槛或要求更高担保 的功能。
+
+# %%
+
+df['id'] = df.index
+
+# %%
+from joblib import load
+# 加载模型
+def load_models():
+    model_path = './'
+    light_gbm_model = load(os.path.join(model_path, 'light_gbm_model.joblib'))
+    xgb_model = load(os.path.join(model_path, 'xgb_model.joblib'))
     return {
-        'segments': loyalty_segments,
-        'actions': actions
+        'LightGBM': light_gbm_model,
+        'XGBoost': xgb_model
     }
 
-# 应用方法
-def implement_loyalty_program():
-    # 1. 初始化忠诚度计划
-    loyalty_opportunity = identify_loyalty_opportunity()
+models = load_models()
+
+# 使用 LightGBM 预测违约概率
+def add_default_proba(df, model, model_name):
+    """
+    使用模型预测违约概率，并添加到数据框中。
+    Args:
+        df (pd.DataFrame): 输入数据框
+        model: 已加载的模型
+        model_name (str): 模型名称，用于区分列名
+    Returns:
+        pd.DataFrame: 添加预测概率后的数据框
+    """
+    # 确保特征与训练时一致
+    feature_columns = [
+        'person_age', 'person_income', 'person_emp_length', 'loan_amnt',
+        'loan_int_rate', 'loan_percent_income', 'cb_person_cred_hist_length'
+    ]
     
-    # 2. 执行忠诚度提升行动
-    def execute_loyalty_actions():
-        results = {
-            'rewards_issued': [],
-            'engagement_metrics': {},
-            'retention_rate': 0.0,
-            'customer_satisfaction': 0.0
-        }
-        
-        # 实施奖励计划
-        def implement_rewards():
-            return {
-                'points_awarded': 0,
-                'rewards_redeemed': 0
-            }
-        
-        # 执行客户互动
-        def run_engagement():
-            return {
-                'communication_rate': 0.0,
-                'response_rate': 0.0
-            }
-        
-        # 跟踪保留效果
-        def track_retention():
-            return {
-                'retention_rate': 0.0,
-                'churn_reduction': 0.0
-            }
-        
-        return results
+    # 检查所需列是否存在
+    for col in feature_columns:
+        if col not in df.columns:
+            raise ValueError(f"Missing feature column: {col}")
     
-    # 3. 监控效果
-    def monitor_loyalty_performance():
-        return {
-            'loyalty_score': 0.0,
-            'customer_lifetime_value': 0.0,
-            'satisfaction_index': 0.0
-        }
-    
-    return {
-        'program_setup': loyalty_opportunity,
-        'execution_results': execute_loyalty_actions(),
-        'performance_metrics': monitor_loyalty_performance()
-    }
+    # 预测违约概率
+    df[f'default_proba_{model_name}'] = model.predict_proba(df[feature_columns])[:, 1]
+    return df
+
+# 添加 LightGBM 模型预测的违约概率
+df = add_default_proba(df, models['LightGBM'], 'LightGBM')
+
+# 添加 XGBoost 模型预测的违约概率（可选）
+df = add_default_proba(df, models['XGBoost'], 'XGBoost')
+
+# 打印数据框以确认新列
+print(df[['default_proba_LightGBM', 'default_proba_XGBoost']].head())
+
+# %%
+#action1:1. 识别高风险客户高风险客户通常满足以下条件：收入较低：低于收入的 20 分位数。违约概率高：风险分数（如 risk_score 或模型预测的违约概率 default_proba）高于 80 分位数。
+import pandas as pd
+import numpy as np
+import joblib
+
+# 加载已保存的模型
+lightgbm_model = joblib.load('./light_gbm_model.joblib')
+xgb_model = joblib.load('./xgb_model.joblib')
+
+# 确保数据中包含模型需要的特征
+feature_columns = lightgbm_model.feature_name_
+for col in feature_columns:
+    if col not in df.columns:
+        df[col] = 0  # 如果缺少特征，填充为 0
+
+# 使用模型进行违约概率预测
+df['lightgbm_proba'] = lightgbm_model.predict_proba(df[feature_columns])[:, 1]
+df['xgb_proba'] = xgb_model.predict_proba(df[feature_columns])[:, 1]
+
+# 计算两模型的平均违约概率
+df['default_proba'] = (df['lightgbm_proba'] + df['xgb_proba']) / 2
+
+# 查看预测结果
+print(df[['id', 'default_proba']].head())
+
+# %% [markdown]
+# 风险分类
+# 根据违约概率对客户进行风险分类，并为高风险客户提供贷后跟踪计划。
+# 风险分类规则：
+# 高风险客户：default_proba > 0.8
+# 中风险客户：0.5 < default_proba <= 0.8
+# 低风险客户：default_proba <= 0.5
+
+# %%
+# 定义风险分类函数
+def assign_risk_category(df):
+    conditions = [
+        (df['default_proba'] > 0.8),
+        (df['default_proba'] > 0.5) & (df['default_proba'] <= 0.8),
+        (df['default_proba'] <= 0.5)
+    ]
+    categories = ['High Risk', 'Medium Risk', 'Low Risk']
+    df['risk_category'] = np.select(conditions, categories, default='Unknown')
+    return df
+
+# 应用风险分类
+df = assign_risk_category(df)
+
+# 查看风险分类结果
+print(df[['id', 'default_proba', 'risk_category']].head())
+
+# %% [markdown]
+# 步骤 3: 提供贷后跟踪与提醒服务
+# 为高风险客户和中风险客户生成贷后跟踪计划：
+# 高风险客户：每月跟踪。
+# 中风险客户：每季度跟踪。
+# 低风险客户：无需额外跟踪。
+
+# %%
+# 定义贷后跟踪计划
+def create_follow_up_plan(df):
+    follow_up_plan = []
+    for _, row in df.iterrows():
+        if row['risk_category'] == 'High Risk':
+            follow_up_plan.append(f"Customer {row['id']}: Monthly follow-up required.")
+        elif row['risk_category'] == 'Medium Risk':
+            follow_up_plan.append(f"Customer {row['id']}: Quarterly follow-up suggested.")
+        else:
+            follow_up_plan.append(f"Customer {row['id']}: No follow-up needed.")
+    df['follow_up_plan'] = follow_up_plan
+    return df
+
+# 应用贷后跟踪计划
+df = create_follow_up_plan(df)
+
+# 查看贷后跟踪计划
+print(df[['id', 'risk_category', 'follow_up_plan']].head())
+
+# %% [markdown]
+# 步骤 4: 提高贷款审批门槛或要求更高担保
+# 根据客户的风险等级调整贷款政策：
+# 高风险客户：
+# 提高贷款审批门槛，直接拒绝贷款或要求全额担保。
+# 中风险客户：
+# 降低贷款额度（例如降低为70%），并要求部分担保。
+# 低风险客户：
+# 正常批准贷款，无需额外担保。
+
+# %%
+# 定义贷款政策调整函数
+def adjust_loan_policy(df):
+    loan_policy = []
+    for _, row in df.iterrows():
+        if row['risk_category'] == 'High Risk':
+            loan_policy.append(f"Customer {row['id']}: Loan rejected or full collateral required.")
+        elif row['risk_category'] == 'Medium Risk':
+            reduced_loan = row['loan_amnt'] * 0.7  # 降低贷款额度为70%
+            loan_policy.append(f"Customer {row['id']}: Loan reduced to {reduced_loan:.2f}, partial collateral required.")
+        else:
+            loan_policy.append(f"Customer {row['id']}: Loan approved without collateral.")
+    df['loan_policy'] = loan_policy
+    return df
+
+# 应用贷款政策调整
+df = adjust_loan_policy(df)
+
+# 查看贷款政策调整结果
+print(df[['id', 'risk_category', 'loan_policy']].head())
+
+# %% [markdown]
+# 步骤 5: 保存结果
+# 将生成的风险分类、贷后跟踪计划和贷款政策调整建议保存为新的 CSV 文件。
+
+# %%
+# 保存结果到 CSV
+output_path = './high_risk_mitigation_results.csv'
+df.to_csv(output_path, index=False)
+
+print(f"结果已保存到 {output_path}")
+
+# %% [markdown]
+# 
+# 
+# 为了更直观地展示客户的分布情况，您可以绘制违约概率分布和风险等级分布图。
+
+# %%
+import matplotlib.pyplot as plt
+
+# 绘制违约概率分布
+plt.figure(figsize=(8, 5))
+plt.hist(df['default_proba'], bins=30, color='blue', alpha=0.7)
+plt.title('Distribution of Default Probability')
+plt.xlabel('Default Probability')
+plt.ylabel('Number of Customers')
+plt.show()
+
+# 绘制风险等级分布
+risk_counts = df['risk_category'].value_counts()
+
+plt.figure(figsize=(6, 4))
+risk_counts.plot(kind='bar', color=['red', 'orange', 'green'])
+plt.title('Customer Risk Category Distribution')
+plt.ylabel('Number of Customers')
+plt.xlabel('Risk Category')
+plt.xticks(rotation=0)
+plt.show()
+
+# %%
+
 
 
