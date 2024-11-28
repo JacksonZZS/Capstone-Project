@@ -562,15 +562,28 @@ for segment, rates in pricing_strategy.items():
     print(f"Suggested Range: {rates['rate_range'][0]:.2%} - {rates['rate_range'][1]:.2%}")
 
 # %%
-# 从客户分层分析中发现
-segments = results['segments']
-high_value_segments = segments[
-    (segments['income_level'] == 'High') & 
-    (segments['risk_level'] == 'Low')
-]
+        },
+        'product_actions': {
+            'premium_products': '推荐高端理财产品',
+            'custom_loans': '定制化融资方案',
+            'priority': 'Medium'
+        },
+        'risk_actions': {
+            'monitoring': '建立预警监控机制',
+            'priority': 'High'
+        }
+    }
 
+# 3. 生成行动计划
+action_plan = define_high_value_actions(high_value_segments)
 
-high_value_segments
+# 4. 获取优先行动项
+high_priority_actions = {
+    key: actions for key, actions in action_plan.items()
+    if actions['priority'] == 'High'
+    
+}
+
 
 # %%
 
@@ -639,5 +652,345 @@ segment_analysis = results['metrics']
 for segment, metrics in segment_analysis.items():
     segment_performance = metrics['avg_risk']
     segment_size = metrics['count']
+
+# %%
+# Opportunity 1: 高价值客户群识别
+
+# 从客户分层分析中发现
+segments = results['segments']
+high_value_segments = segments[
+    (segments['income_level'] == 'High') & 
+    (segments['risk_level'] == 'Low')
+]
+
+
+high_value_segments
+
+# %%
+#actions
+def define_high_value_actions(high_value_segments):
+    """
+    定义高价值客户的关键行动方案
+    """
+    return {
+        'service_actions': {
+            'vip_service': '提供专属客户经理',
+            'priority': 'High',
+            'target_customers':  high_value_segments.index.tolist()
+        },
+        'product_actions': {
+            'premium_products': '推荐高端理财产品',
+            'custom_loans': '定制化融资方案',
+            'priority': 'Medium'
+        },
+        'risk_actions': {
+            'monitoring': '建立预警监控机制',
+            'priority': 'High'
+        }
+    }
+
+# 3. 生成行动计划
+action_plan = define_high_value_actions(high_value_segments)
+
+# 4. 获取优先行动项
+high_priority_actions = {
+    key: actions for key, actions in action_plan.items()
+    if actions['priority'] == 'High'
+    
+}
+
+
+# %%
+# Opportunity 2: 交叉销售机会客户群识别
+segments = results['segments']
+cross_sell_segments = segments[
+    (segments['income_level'].isin(['Medium', 'High'])) &  # 中高收入
+    (segments['risk_level'] == 'Low') &                    # 低风险
+    ~((segments['income_level'] == 'High') &               # 排除已识别的高价值客户
+      (segments['risk_level'] == 'Low'))
+]
+
+# 相应的Actions定义
+def define_cross_sell_actions(cross_sell_segments):
+    actions = {
+        'target_list': {
+            'priority': 'High',
+            'description': '生成目标客户清单',
+            'criteria': {
+                'income_range': '中高收入段',
+                'risk_threshold': '低风险分数',
+                'product_holding': '现有产品持有情况'
+            }
+        },
+        'product_recommendations': {
+            'priority': 'Medium',
+            'description': '制定产品推荐策略',
+            'products': [
+                '信用卡升级',
+                '理财产品',
+                '保险服务'
+            ]
+        },
+        'campaign_design': {
+            'priority': 'Medium',
+            'description': '设计营销活动',
+            'channels': [
+                '手机银行推送',
+                '客户经理一对一沟通',
+                '精准营销邮件'
+            ]
+        },
+        'success_metrics': {
+            'priority': 'Low',
+            'description': '设定成功指标',
+            'kpis': [
+                '交叉销售转化率',
+                '客均产品持有数增长',
+                '客户价值提升度'
+            ]
+        }
+    }
+    return actions
+
+# 执行actions定义
+cross_sell_actions = define_cross_sell_actions(cross_sell_segments)
+
+# %%
+# Opportunity 3: 定价优化机会
+pricing_analysis = calculate_risk_based_pricing(X)
+
+pricing_optimization_segments = pricing_analysis[
+    (pricing_analysis['risk_score'] < 0.3) &                # 风险可控
+    (pricing_analysis['loan_amount'] >= 50000) &           # 大额贷款
+    (pricing_analysis['suggested_rate'] > 0.12)            # 当前定价偏高
+]
+
+# 相应的Actions定义
+def define_pricing_optimization_actions(optimization_segments):
+    actions = {
+        'rate_adjustment': {
+            'priority': 'High',
+            'description': '利率优化方案',
+            'components': {
+                'base_rate_review': '重新评估基准利率',
+                'risk_premium': '优化风险溢价计算',
+                'volume_discount': '引入规模折扣'
+            }
+        },
+        'competitive_analysis': {
+            'priority': 'Medium',
+            'description': '竞争对手定价分析',
+            'focus_areas': [
+                '市场利率水平跟踪',
+                '竞品定价策略分析',
+                '客户流失风险评估'
+            ]
+        },
+        'implementation_plan': {
+            'priority': 'High',
+            'description': '实施计划',
+            'steps': {
+                'pilot_testing': '试点测试新定价',
+                'customer_communication': '客户沟通策略',
+                'system_updates': '系统更新计划'
+            }
+        },
+        'monitoring_framework': {
+            'priority': 'Medium',
+            'description': '效果监控框架',
+            'metrics': [
+                '利率调整后的转化率',
+                '收益影响分析',
+                '客户满意度跟踪',
+                '市场份额变化'
+            ]
+        }
+    }
+    return actions
+
+# 执行actions定义
+pricing_optimization_actions = define_pricing_optimization_actions(pricing_optimization_segments)
+
+# %%
+# Opportunity 4: 风险预警与管理优化
+risk_patterns = identify_default_patterns()
+
+# 1. 首先查看字典结构
+print("Available keys:", risk_patterns.keys())
+
+# 2. 修改为处理字典格式的代码
+def process_risk_patterns(risk_data):
+    high_risk_cases = {
+        'risk_metrics': risk_data.get('risk_metrics', {}),
+        'warning_indicators': {
+            'high_risk': [],
+            'medium_risk': [],
+            'low_risk': []
+        }
+    }
+    
+    # 处理风险指标
+    for customer_id, metrics in risk_data.get('customer_metrics', {}).items():
+        risk_level = metrics.get('risk_score', 0)
+        payment_status = metrics.get('payment_status', '')
+        utilization = metrics.get('utilization', 0)
+        
+        if (risk_level > 0.7 or 
+            payment_status == 'overdue' or 
+            utilization > 0.8):
+            high_risk_cases['warning_indicators']['high_risk'].append(customer_id)
+            
+    return high_risk_cases
+
+# 3. 执行风险分析
+early_warning_segments = process_risk_patterns(risk_patterns)
+
+# 4. 定义相应的actions
+def define_risk_management_actions(warning_segments):
+    actions = {
+        'early_warning_system': {
+            'priority': 'High',
+            'description': '建立预警机制',
+            'components': {
+                'risk_indicators': [
+                    '风险分数',
+                    '支付状态',
+                    '额度使用率'
+                ],
+                'alert_thresholds': {
+                    'risk_score': '>0.7',
+                    'payment_status': 'overdue',
+                    'utilization': '>80%'
+                }
+            }
+        }
+    }
+    return actions
+
+# 5. 执行
+risk_management_actions = define_risk_management_actions(early_warning_segments)
+
+# %%
+# Opportunity 5: 客户忠诚度提升计划
+def identify_loyalty_opportunity():
+    # 从现有分析中获取客户行为数据
+    customer_behavior = analyze_loan_management()
+    retention_metrics = customer_behavior['metrics']
+    
+    loyalty_segments = {
+        'stable_customers': [],
+        'at_risk_customers': [],
+        'growth_potential': []
+    }
+    
+    # 定义忠诚度计划的Actions
+    actions = {
+        'reward_program': {
+            'priority': 'High',
+            'description': '忠诚度奖励体系',
+            'components': {
+                'points_system': {
+                    'payment_on_time': '100点',
+                    'product_adoption': '200点',
+                    'referral': '300点'
+                },
+                'rewards': [
+                    '利率优惠',
+                    '费用减免',
+                    '额度提升'
+                ]
+            }
+        },
+        'engagement_strategy': {
+            'priority': 'Medium',
+            'description': '客户互动策略',
+            'activities': {
+                'regular_communication': [
+                    '个性化内容推送',
+                    '生日/节日关怀',
+                    '产品使用建议'
+                ],
+                'feedback_collection': [
+                    '满意度调查',
+                    '产品建议收集',
+                    '服务体验反馈'
+                ]
+            }
+        },
+        'retention_program': {
+            'priority': 'High',
+            'description': '客户保留计划',
+            'measures': {
+                'early_warning': '流失风险预警',
+                'personalized_offers': '个性化挽留方案',
+                'service_upgrade': '服务等级提升'
+            }
+        },
+        'value_added_services': {
+            'priority': 'Medium',
+            'description': '增值服务',
+            'services': [
+                '财务咨询',
+                '专属客户经理',
+                '优先服务通道'
+            ]
+        }
+    }
+    
+    return {
+        'segments': loyalty_segments,
+        'actions': actions
+    }
+
+# 应用方法
+def implement_loyalty_program():
+    # 1. 初始化忠诚度计划
+    loyalty_opportunity = identify_loyalty_opportunity()
+    
+    # 2. 执行忠诚度提升行动
+    def execute_loyalty_actions():
+        results = {
+            'rewards_issued': [],
+            'engagement_metrics': {},
+            'retention_rate': 0.0,
+            'customer_satisfaction': 0.0
+        }
+        
+        # 实施奖励计划
+        def implement_rewards():
+            return {
+                'points_awarded': 0,
+                'rewards_redeemed': 0
+            }
+        
+        # 执行客户互动
+        def run_engagement():
+            return {
+                'communication_rate': 0.0,
+                'response_rate': 0.0
+            }
+        
+        # 跟踪保留效果
+        def track_retention():
+            return {
+                'retention_rate': 0.0,
+                'churn_reduction': 0.0
+            }
+        
+        return results
+    
+    # 3. 监控效果
+    def monitor_loyalty_performance():
+        return {
+            'loyalty_score': 0.0,
+            'customer_lifetime_value': 0.0,
+            'satisfaction_index': 0.0
+        }
+    
+    return {
+        'program_setup': loyalty_opportunity,
+        'execution_results': execute_loyalty_actions(),
+        'performance_metrics': monitor_loyalty_performance()
+    }
 
 
